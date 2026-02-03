@@ -162,9 +162,10 @@ resource "google_alloydb_instance" "primary" {
   }
 
   database_flags = {
-    "alloydb.iam_authentication"                 = "on"
-    "google_ml_integration.enable_model_support" = "on"
-    "password.enforce_complexity"                = "on"
+    "alloydb.iam_authentication"                   = "on"
+    "google_ml_integration.enable_model_support"   = "on"
+    "google_ml_integration.enable_ai_query_engine" = "on"
+    "password.enforce_complexity"                  = "on"
   }
 
   depends_on = [google_service_networking_connection.private_vpc_connection]
