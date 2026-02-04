@@ -1,0 +1,273 @@
+# =============================================================================
+# MCP Toolbox for Databases — Tool Definitions
+# =============================================================================
+# This file configures the MCP Toolbox server with two data sources (AlloyDB
+# and BigQuery) and the tools the agent can use to query them.
+#
+# How it works:
+#   - "sources" define database connections (credentials via env vars)
+#   - "tools" define parameterized SQL queries the agent can invoke
+#   - "toolsets" group tools into named collections
+#
+# The Toolbox server reads this file on startup and exposes each tool over
+# MCP at http://localhost:5000/mcp. The ADK agent connects there and can
+# call any tool in the active toolset.
+#
+# Environment variables (from .env): ${PROJECT_ID}, ${REGION}, ${DB_USER},
+# ${ALLOYDB_CLUSTER}, ${ALLOYDB_INSTANCE}, ${ALLOYDB_DATABASE}
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# DATA SOURCES
+# -----------------------------------------------------------------------------
+# One tools.yaml, two backends. The agent doesn't need to know which database
+# a tool talks to — Toolbox handles the routing based on each tool's "source".
+
+sources:
+
+  # AlloyDB — operational database with athlete profiles, competition
+  # results, and vector embeddings for semantic search.
+  # IAM auth: user is your Google Cloud identity, no password needed.
+  team_usa_alloydb:
+    kind: alloydb-postgres
+    project: ${PROJECT_ID}
+    region: ${REGION}
+    cluster: ${ALLOYDB_CLUSTER}
+    instance: ${ALLOYDB_INSTANCE}
+    database: ${ALLOYDB_DATABASE}
+    user: ${DB_USER}
+    ipType: public
+
+  # BigQuery — analytics and ML platform with K-Means career archetype
+  # model results. Auth uses Application Default Credentials automatically.
+  team_usa_bigquery:
+    kind: bigquery
+    project: ${PROJECT_ID}
+    location: us-central1
+
+
+# -----------------------------------------------------------------------------
+# TOOLS
+# -----------------------------------------------------------------------------
+# Each tool is a parameterized SQL query with a description the agent reads
+# to decide when to call it. Good descriptions are critical — they're how
+# the agent knows WHEN to use each tool.
+#
+# AlloyDB tools: kind postgres-sql, positional parameters ($1, $2, ...)
+# BigQuery tools: kind bigquery-sql, named parameters (@param_name)
+
+tools:
+
+  # -------------------------------------------------------------------------
+  # AlloyDB Tools — Operational Athlete Data
+  # -------------------------------------------------------------------------
+
+  get_athlete_profile:
+    kind: postgres-sql
+    source: team_usa_alloydb
+    description: >-
+      Look up a Team USA athlete's detailed profile by name. Returns
+      biographical information, sport, competition history, medal counts,
+      and an AI-generated narrative profile summarizing their career. Use
+      this when someone asks about a specific athlete by name. The search
+      is case-insensitive and supports partial matching — "phelps" finds
+      "Michael Phelps". The games_type field indicates whether the athlete
+      competed in the Olympics or Paralympics.
+    parameters:
+      - name: athlete_name
+        type: string
+        description: >-
+          The name (or partial name) of the athlete to look up.
+          Examples: "Michael Phelps", "Biles", "ledecky"
+    statement: |
+      SELECT
+        a.name,
+        a.gender,
+        a.primary_sport,
+        a.games_type,
+        a.games_season,
+        a.classification_code,
+        a.games_count,
+        a.first_games_year,
+        a.last_games_year,
+        a.total_medals,
+        a.gold_count,
+        a.silver_count,
+        a.bronze_count,
+        a.profile_summary
+      FROM athletes a
+      WHERE LOWER(a.name) LIKE LOWER('%' || $1 || '%')
+      ORDER BY a.total_medals DESC
+      LIMIT 5;
+
+  get_sport_medalists:
+    kind: postgres-sql
+    source: team_usa_alloydb
+    description: >-
+      Find Team USA medal winners in a specific sport, ranked by total
+      medals. Returns up to 20 athletes with their competition history
+      and medal breakdown. Use this when someone asks about top performers
+      or medal leaders in a sport like Swimming, Gymnastics, Track & Field,
+      Wheelchair Racing, etc. Works for both Olympic and Paralympic sports.
+      The games_type field distinguishes Olympic from Paralympic athletes.
+    parameters:
+      - name: sport_name
+        type: string
+        description: >-
+          The sport to search. Case-insensitive partial match.
+          Examples: "Swimming", "Track & Field", "Wheelchair Basketball"
+    statement: |
+      SELECT
+        a.name,
+        a.primary_sport,
+        a.games_type,
+        a.games_season,
+        a.games_count,
+        a.first_games_year,
+        a.last_games_year,
+        a.total_medals,
+        a.gold_count,
+        a.silver_count,
+        a.bronze_count
+      FROM athletes a
+      WHERE LOWER(a.primary_sport) LIKE LOWER('%' || $1 || '%')
+        AND a.total_medals > 0
+      ORDER BY a.total_medals DESC
+      LIMIT 20;
+
+
+  # =========================================================================
+  # TODO 2: Complete the Semantic Search Tool
+  # =========================================================================
+  # This tool finds athletes whose AI-generated profiles are semantically
+  # similar to a natural language description. For example, searching for
+  # "dominant swimmer who broke world records" should find Michael Phelps
+  # — even though those exact words might not appear in his profile.
+  #
+  # Your job: Write the SQL statement and uncomment the tool definition
+  # below (and the toolset entry at the bottom of the file).
+  #
+  # The SQL pattern you need (from Task 4's AlloyDB vector search work):
+  #   - Use embedding('gemini-embedding-001', $1)::vector to convert the
+  #     user's description into a vector
+  #   - Use the <=> operator to calculate cosine distance against the
+  #     "embedding" column in the athletes table
+  #   - Calculate a similarity score: 1 minus the cosine distance, rounded
+  #     to 3 decimal places — alias it as "similarity"
+  #   - Filter: WHERE a.embedding IS NOT NULL
+  #   - Order by cosine distance ascending (closest = most similar)
+  #   - Limit results using the $2 parameter
+  #
+  # Return these columns:
+  #   name, primary_sport, games_type, games_count, total_medals,
+  #   gold_count, profile_summary, and the similarity score
+  # =========================================================================
+
+  # search_similar_athletes:
+  #   kind: postgres-sql
+  #   source: team_usa_alloydb
+  #   description: >-
+  #     Search for Team USA athletes whose career profiles are semantically
+  #     similar to a natural language description. Uses AlloyDB vector search
+  #     with ScaNN indexing to find athletes by meaning, not keywords. For
+  #     example, "dominant swimmer who won multiple golds" finds Michael
+  #     Phelps. "Paralympic champion who inspired a generation" finds
+  #     athletes like Jessica Long. Use this when someone describes the TYPE
+  #     of athlete they're looking for rather than asking about a specific
+  #     person by name.
+  #   parameters:
+  #     - name: description
+  #       type: string
+  #       description: >-
+  #         A natural language description of the type of athlete to find.
+  #         Examples: "sprinter who overcame adversity", "veteran gymnast",
+  #         "wheelchair racing champion", "multi-sport winter athlete"
+  #     - name: max_results
+  #       type: integer
+  #       description: >-
+  #         Maximum number of similar athletes to return (recommended 5-10)
+  #   statement: |
+  #     YOUR SQL GOES HERE
+
+
+  # -------------------------------------------------------------------------
+  # BigQuery Tools — Analytics & ML Model Results
+  # -------------------------------------------------------------------------
+
+  get_athlete_archetype:
+    kind: bigquery-sql
+    source: team_usa_bigquery
+    description: >-
+      Look up which career archetype a specific athlete belongs to, based
+      on the K-Means clustering model built in BigQuery ML. The five
+      archetypes describe different career patterns across 120+ years of
+      Team USA history:
+        1. The Efficient Competitors — Paralympic-dominant, high medal rate
+           in few Games, primarily Track & Field and Aquatics
+        2. The Elite Achievers — Most decorated athletes, averaging 8+
+           medals and 4.5+ golds, primarily Paralympic
+        3. The Core Population — Largest group (~8,100), typically one
+           Games appearance with fewer podium finishes
+        4. The Veterans — Highest longevity, 3+ Games appearances with
+           steady medal contributions
+        5. Team Sports Specialists — Mostly Olympic athletes in team
+           sports with strong gold counts
+      Use this when someone asks what type of athlete someone is, their
+      career pattern, or how they compare to historical norms.
+    parameters:
+      - name: athlete_name
+        type: string
+        description: The athlete's name to look up their archetype
+    statement: |
+      SELECT
+        name,
+        primary_sport,
+        games_type,
+        archetype_name,
+        archetype_description,
+        centroid_id,
+        games_count,
+        total_medals,
+        gold_count,
+        medal_rate
+      FROM `team_usa_analytics.athlete_archetypes`
+      WHERE LOWER(name) LIKE CONCAT('%', LOWER(@athlete_name), '%')
+      LIMIT 5
+
+  list_archetype_summary:
+    kind: bigquery-sql
+    source: team_usa_bigquery
+    description: >-
+      Get a statistical summary of all five career archetypes from the
+      K-Means model. Shows athlete count, average medals, golds, Games
+      appearances, and Paralympic percentage for each archetype. Use this
+      when someone wants an overview of the career patterns, asks how
+      athletes are categorized, or wants to compare archetypes.
+    statement: |
+      SELECT
+        archetype_name,
+        centroid_id,
+        COUNT(*) AS athlete_count,
+        ROUND(AVG(total_medals), 1) AS avg_medals,
+        ROUND(AVG(gold_count), 1) AS avg_golds,
+        ROUND(AVG(games_count), 1) AS avg_games,
+        ROUND(SUM(CASE WHEN games_type = 'Paralympic' THEN 1 ELSE 0 END) * 100.0
+              / COUNT(*), 1) AS paralympic_pct
+      FROM `team_usa_analytics.athlete_archetypes`
+      GROUP BY archetype_name, centroid_id
+      ORDER BY centroid_id
+
+
+# -----------------------------------------------------------------------------
+# TOOLSETS
+# -----------------------------------------------------------------------------
+# Groups tools into a named collection the agent loads at startup.
+
+toolsets:
+  team_usa_tools:
+    - get_athlete_profile
+    - get_sport_medalists
+    - get_athlete_archetype
+    - list_archetype_summary
+    # - search_similar_athletes    # TODO 2: Uncomment after completing

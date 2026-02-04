@@ -16,3 +16,6 @@ __pycache__/
 
 # OS
 .DS_Store
+
+.vscode/
+.vscode
