@@ -7,53 +7,61 @@ provides access to both AlloyDB (operational athlete data) and BigQuery
 
 Architecture:
     User → ADK Agent (Gemini) → MCP Toolbox → AlloyDB + BigQuery
+
+Uncomment the identified solution settings to see solution
 """
 
 import os
 from dotenv import load_dotenv
-from google.adk.agents import Agent
-from google.adk.tools.mcp_tool import MCPToolset, StreamableHTTPConnectionParams
-from .agent_instructions import AGENT_DESCRIPTION, AGENT_INSTRUCTIONS
 
-# Load environment variables from .env
+from google.adk.agents import LlmAgent
+from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
+from google.adk.tools.mcp_tool.mcp_toolset import StreamableHTTPConnectionParams
+
+# Setup for the visualization agent
+# Uncomment the below imports to run solution
+# from google.adk.tools.agent_tool import AgentTool
+# from .visualization_agent import visualization_agent
+
 load_dotenv()
 
-# ---------------------------------------------------------------------------
-# MCP Toolbox Connection
-# ---------------------------------------------------------------------------
-# The Toolbox server runs locally on port 5000. Since it's local, no
-# authentication headers are needed (unlike a Cloud Run deployment where
-# you'd need ID tokens).
-
-TOOLBOX_URL = os.environ.get("TOOLBOX_URL", "http://localhost:5000")
+TOOLBOX_URL = os.getenv("TOOLBOX_URL", "http://localhost:5000/mcp")
 
 
 def build_toolbox_toolset() -> MCPToolset:
-    """Create an MCP connection to the local Toolbox server.
-
-    The Toolbox server exposes all tools defined in tools.yaml as MCP
-    tools. The agent discovers them automatically at startup.
-    """
+    """Create an MCPToolset that connects to the MCP Toolbox server."""
     return MCPToolset(
-        connection_params=StreamableHTTPConnectionParams(
-            url=f"{TOOLBOX_URL}/mcp",
-            timeout=60,
-            sse_read_timeout=300,
-        )
+        connection_params=StreamableHTTPConnectionParams(url=TOOLBOX_URL)
     )
 
 
-# ---------------------------------------------------------------------------
-# Agent Definition
-# ---------------------------------------------------------------------------
-# The agent uses Gemini 2.5 Flash and gets all its database tools from the
-# MCP Toolbox connection. Tool descriptions in tools.yaml guide the model
-# on when to use each tool.
-
-root_agent = Agent(
+root_agent = LlmAgent(
     name="team_usa_analyst",
     model="gemini-2.5-flash",
-    description=AGENT_DESCRIPTION,
-    instruction=AGENT_INSTRUCTIONS,
-    tools=[build_toolbox_toolset()],
+    description="Team USA Olympic and Paralympic analytics agent.",
+    instruction="""You are the Team USA Analytics Agent — an expert on United States
+Olympic and Paralympic history spanning over 120 years of competition.
+
+You have access to two data sources through MCP Toolbox:
+- **BigQuery** — aggregated analytics, medal counts, historical trends, and
+  BQML-generated career archetype clusters.
+- **AlloyDB** — individual athlete profiles with AI-generated narratives and
+  vector embeddings for semantic similarity search.
+
+When answering questions:
+1. Determine which data source is most appropriate.
+2. Use the MCP tools to query the data.
+3. Present findings in a clear, engaging way — you're a sports analyst telling
+   a story, not just returning rows.
+4. When the user asks for a chart, graph, or visualization, use the
+   visualization_agent tool. Pass it the relevant data and describe the chart needed.
+
+For athlete similarity questions (e.g., "find athletes like Simone Biles"),
+use the AlloyDB vector search tools.
+
+For aggregated statistics, trends, and archetype analysis, use BigQuery.
+""",
+    tools=[build_toolbox_toolset(), ],
+    # Solution version:
+    #tools=[build_toolbox_toolset(), AgentTool(agent=visualization_agent)],
 )

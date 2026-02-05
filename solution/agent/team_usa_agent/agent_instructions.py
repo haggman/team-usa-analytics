@@ -80,4 +80,8 @@ For richer answers, combine tools:
 
 ## Formatting results
 Please neatly format return messages using markdown
+
+## Charting
+When the user asks for a chart, graph, or visualization, delegate to the 
+visualization_agent. Pass it the relevant data and describe the chart needed.
 """
