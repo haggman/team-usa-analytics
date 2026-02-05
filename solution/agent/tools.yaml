@@ -188,7 +188,19 @@ tools:
         description: >-
           Maximum number of similar athletes to return (recommended 5-10)
     statement: |
-          YOUR SQL GOES HERE
+          SELECT
+            a.name,
+            a.primary_sport,
+            a.games_type,
+            a.games_count,
+            a.total_medals,
+            a.gold_count,
+            a.profile_summary,
+            ROUND((1 - (a.embedding <=> embedding('gemini-embedding-001', $1)::vector))::numeric, 3) AS similarity
+          FROM athletes a
+          WHERE a.embedding IS NOT NULL
+          ORDER BY a.embedding <=> embedding('gemini-embedding-001', $1)::vector
+          LIMIT $2;
 
 
   # -------------------------------------------------------------------------
@@ -300,4 +312,4 @@ toolsets:
     - get_athlete_archetype
     - list_archetype_summary
     - execute_custom_query
-    #- search_similar_athletes    # TODO 2: Uncomment after completing
+    - search_similar_athletes    # TODO 2: Uncomment after completing
