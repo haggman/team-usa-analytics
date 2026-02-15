@@ -169,6 +169,8 @@ resource "google_alloydb_instance" "primary" {
     "google_ml_integration.enable_model_support"   = "on"
     "google_ml_integration.enable_ai_query_engine" = "on"
     "password.enforce_complexity"                  = "on"
+    "alloydb.enable_pgaudit"                       = "on"
+    "pgaudit.log"                                  = "read,write"
   }
 
   depends_on = [google_service_networking_connection.private_vpc_connection]

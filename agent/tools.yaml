@@ -300,4 +300,4 @@ toolsets:
     - get_athlete_archetype
     - list_archetype_summary
     - execute_custom_query
-    #- search_similar_athletes    # TODO 2: Uncomment after completing
+#    - search_similar_athletes    # TODO 2: Uncomment after completing
