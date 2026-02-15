@@ -66,6 +66,9 @@ locals {
     # Core platform
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
+
+    # Model Armor (AI guardrails)
+    "modelarmor.googleapis.com",
   ]
 }
 
