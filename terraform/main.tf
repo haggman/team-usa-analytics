@@ -195,6 +195,27 @@ resource "google_alloydb_user" "iam_user" {
 }
 
 # -----------------------------------------------------------------------------
+# Audit Logging — Data Access Logs
+# -----------------------------------------------------------------------------
+# BigQuery enables Data Access audit logs by default, but AlloyDB does not.
+# This configuration turns them on so that every query the AI agent executes
+# against AlloyDB is captured in Cloud Logging — giving you a complete audit
+# trail across both databases.
+
+resource "google_project_iam_audit_config" "alloydb_data_access" {
+  project = var.project_id
+  service = "alloydb.googleapis.com"
+
+  audit_log_config {
+    log_type = "DATA_READ"
+  }
+
+  audit_log_config {
+    log_type = "DATA_WRITE"
+  }
+}
+
+# -----------------------------------------------------------------------------
 # Outputs
 # -----------------------------------------------------------------------------
 
