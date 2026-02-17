@@ -266,27 +266,35 @@ tools:
       pre-built tools can't answer the question. Use this for exploratory queries,
       aggregate statistics, or complex filtering.
       
-      Table: athletes (one row per athlete)
+      Table: athletes (one row per athlete, 11,843 rows)
         athlete_id (VARCHAR PK), name, gender,
         games_type ('Olympic' or 'Paralympic'),
         games_season ('Summer' or 'Winter'),
-        primary_sport, classification_code (nullable),
-        total_medals, gold_count, silver_count, bronze_count,
-        games_count, first_games_year, last_games_year,
-        profile_summary, embedding (VECTOR)
+        primary_sport, classification_code (nullable, Paralympic only),
+        total_medals, gold_count, silver_count, bronze_count (INTEGER),
+        games_count, first_games_year, last_games_year (INTEGER),
+        profile_summary (TEXT), embedding (VECTOR)
 
-      Table: results (one row per medal won)
-        result_id (SERIAL PK), athlete_id (FK), athlete_name,
-        games_year (INTEGER), games_season, games_type,
-        sport, discipline, event, medal ('Gold'/'Silver'/'Bronze'),
+      Table: results (one row per competition entry, 24,198 rows)
+        result_id (SERIAL PK), athlete_id (VARCHAR FK → athletes),
+        athlete_name, games_year (INTEGER), games_season, games_type,
+        sport, discipline, event,
+        medal (VARCHAR, nullable — values are 'Gold', 'Silver', 'Bronze',
+               or NULL for non-medal finishes),
         classification_code (nullable)
+
+      IMPORTANT: The medal column is NULL for non-medal finishes (~63% of rows).
+      Always filter WHERE medal IS NOT NULL when counting medals, or
+      WHERE medal = 'Gold' for gold counts, etc.
+
+      Use the results table for per-year, per-event, or per-Games queries.
+      Use the athletes table for career-level summaries.
 
       Use JOIN when combining tables:
         SELECT ... FROM results r
         JOIN athletes a ON r.athlete_id = a.athlete_id
       
       Write standard PostgreSQL syntax. Return only the columns needed.
-
 
 # -----------------------------------------------------------------------------
 # TOOLSETS

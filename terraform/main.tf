@@ -67,6 +67,9 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "iam.googleapis.com",
 
+    # Data Analytics API with Gemini (Data Engineering Agent)
+    "geminidataanalytics.googleapis.com",
+
     # Model Armor (AI guardrails)
     "modelarmor.googleapis.com",
   ]

@@ -9,10 +9,10 @@ function-calling tools in the same agent. That's why visualization lives
 in its own agent, wrapped as an AgentTool by the root agent.
 """
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import Agent
 from google.adk.code_executors import BuiltInCodeExecutor
 
-visualization_agent = LlmAgent(
+visualization_agent = Agent(
     name="visualization_agent",
     model="gemini-2.5-flash",
     description=(
