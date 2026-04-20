@@ -15,6 +15,7 @@ import os
 from dotenv import load_dotenv
 
 from google.adk.agents import LlmAgent
+from google.genai import types
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 from google.adk.tools.mcp_tool.mcp_toolset import StreamableHTTPConnectionParams
 
@@ -24,6 +25,24 @@ from google.adk.tools.mcp_tool.mcp_toolset import StreamableHTTPConnectionParams
 # from .visualization_agent import visualization_agent
 
 load_dotenv()
+
+# ============================================================================
+# Enable Provisioned Throughput (where applicable)
+# ============================================================================
+shared_config = types.GenerateContentConfig(
+    http_options=types.HttpOptions(
+        api_version="v1",
+        headers={"X-Vertex-AI-LLM-Request-Type": "shared"},
+        retry_options=types.HttpRetryOptions(
+            attempts=10,
+            initial_delay=0.5,      # start fast
+            max_delay=4.0,          # cap each wait at 4s
+            exp_base=2.0,           # doubles until capped
+            jitter=1.0,             # avoid thundering-herd retries
+            http_status_codes=[408, 429, 500, 502, 503, 504],
+        ),
+    ),
+)
 
 TOOLBOX_URL = os.getenv("TOOLBOX_URL", "http://localhost:5000/mcp")
 
@@ -37,7 +56,8 @@ def build_toolbox_toolset() -> MCPToolset:
 
 root_agent = LlmAgent(
     name="team_usa_analyst",
-    model="gemini-2.5-flash",
+    model="gemini-3-flash-preview",
+    generate_content_config=shared_config,
     description="Team USA Olympic and Paralympic analytics agent.",
     instruction="""You are the Team USA Analytics Agent — an expert on United States
 Olympic and Paralympic history spanning over 120 years of competition.
