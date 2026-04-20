@@ -10,11 +10,29 @@ in its own agent, wrapped as an AgentTool by the root agent.
 """
 
 from google.adk.agents import Agent
+from google.genai import types
 from google.adk.code_executors import BuiltInCodeExecutor
+
+# Enable Gemini retries and Provision Throughout (if available)
+shared_config = types.GenerateContentConfig(
+    http_options=types.HttpOptions(
+        api_version="v1",
+        headers={"X-Vertex-AI-LLM-Request-Type": "shared"},
+        retry_options=types.HttpRetryOptions(
+            attempts=10,
+            initial_delay=0.5,      # start fast
+            max_delay=4.0,          # cap each wait at 4s
+            exp_base=2.0,           # doubles until capped
+            jitter=1.0,             # avoid thundering-herd retries
+            http_status_codes=[408, 429, 500, 502, 503, 504],
+        ),
+    ),
+)
 
 visualization_agent = Agent(
     name="visualization_agent",
-    model="gemini-2.5-flash",
+    model="gemini-3-flash-preview",
+    generate_content_config=shared_config,
     description=(
         "Creates data visualizations and charts using Python code execution. "
         "Use this tool when the user wants a visual representation "
