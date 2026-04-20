@@ -12,11 +12,28 @@ Architecture:
 import os
 from dotenv import load_dotenv
 from google.adk.agents import Agent
+from google.genai import types
 from google.adk.tools.mcp_tool import MCPToolset, StreamableHTTPConnectionParams
 from .agent_instructions import AGENT_DESCRIPTION, AGENT_INSTRUCTIONS
 
 # Load environment variables from .env
 load_dotenv()
+
+# Enable Gemini retries and Provision Throughout (if available)
+shared_config = types.GenerateContentConfig(
+    http_options=types.HttpOptions(
+        api_version="v1",
+        headers={"X-Vertex-AI-LLM-Request-Type": "shared"},
+        retry_options=types.HttpRetryOptions(
+            attempts=10,
+            initial_delay=0.5,      # start fast
+            max_delay=4.0,          # cap each wait at 4s
+            exp_base=2.0,           # doubles until capped
+            jitter=1.0,             # avoid thundering-herd retries
+            http_status_codes=[408, 429, 500, 502, 503, 504],
+        ),
+    ),
+)
 
 # ---------------------------------------------------------------------------
 # MCP Toolbox Connection
@@ -46,13 +63,14 @@ def build_toolbox_toolset() -> MCPToolset:
 # ---------------------------------------------------------------------------
 # Agent Definition
 # ---------------------------------------------------------------------------
-# The agent uses Gemini 2.5 Flash and gets all its database tools from the
+# The agent uses Gemini 3 Flash and gets all its database tools from the
 # MCP Toolbox connection. Tool descriptions in tools.yaml guide the model
 # on when to use each tool.
 
 root_agent = Agent(
     name="team_usa_analyst",
-    model="gemini-2.5-flash",
+    model="gemini-3-flash-preview",
+    generate_content_config=shared_config,
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTIONS,
     tools=[build_toolbox_toolset()],
