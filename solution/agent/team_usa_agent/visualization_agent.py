@@ -10,11 +10,13 @@ in its own agent, wrapped as an AgentTool by the root agent.
 """
 
 from google.adk.agents import LlmAgent
+from google.genai import types
 from google.adk.code_executors import BuiltInCodeExecutor
 
 visualization_agent = LlmAgent(
     name="visualization_agent",
-    model="gemini-2.5-flash",
+    model="gemini-3-flash-preview",
+    generate_content_config=shared_config,
     description=(
         "Creates data visualizations and charts using Python code execution. "
         "Use this tool when the user wants a visual representation "
